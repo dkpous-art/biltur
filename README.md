@@ -35,3 +35,7 @@ Telefonen kan få en mindre eller større afvigelse i distance, især tæt på b
 Appen ignorerer GPS-positioner med meget dårlig nøjagtighed og åbenlyse spring.
 
 Hvis brugeren kun giver "omtrentlig placering", bliver distancemålingen mindre præcis.
+
+## tilføjet android auto launcher mulighed
+
+Appen kan tilføjes aa launcher hvis den installeres med KingInstaller uden om play store
