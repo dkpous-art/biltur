@@ -22,22 +22,25 @@ class WalkTrackingService : Service() {
 
     private lateinit var fused: FusedLocationProviderClient
 
-    // Seneste accepterede GPS-position
     private var lastLocation: Location? = null
-
-    // GPS-position ved turens start
     private var startLocation: Location? = null
 
     private var distanceMeters = 0.0
     private var startTimeMs = 0L
     private var currentSpeedKmh = 0.0
+
+    // Turens højeste registrerede hastighed
+    private var maxSpeedKmh = 0.0
+
     private var isTracking = false
     private var isSaving = false
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private val callback = object : LocationCallback() {
+
         override fun onLocationResult(result: LocationResult) {
+
             for (location in result.locations) {
 
                 // Ignorer positioner med dårlig GPS-nøjagtighed
@@ -49,9 +52,12 @@ class WalkTrackingService : Service() {
                 var validDistanceDelta: Double? = null
 
                 if (previous == null) {
+
                     lastLocation = location
                     startLocation = location
+
                 } else {
+
                     val elapsedSeconds =
                         (location.time - previous.time) / 1000.0
 
@@ -65,12 +71,18 @@ class WalkTrackingService : Service() {
                     val maxSpeedMetersPerSecond = 220.0 / 3.6
 
                     val previousAccuracy =
-                        if (previous.hasAccuracy()) previous.accuracy.toDouble()
-                        else 0.0
+                        if (previous.hasAccuracy()) {
+                            previous.accuracy.toDouble()
+                        } else {
+                            0.0
+                        }
 
                     val currentAccuracy =
-                        if (location.hasAccuracy()) location.accuracy.toDouble()
-                        else 0.0
+                        if (location.hasAccuracy()) {
+                            location.accuracy.toDouble()
+                        } else {
+                            0.0
+                        }
 
                     val accuracyAllowance = maxOf(
                         20.0,
@@ -90,7 +102,9 @@ class WalkTrackingService : Service() {
                         }
 
                         lastLocation = location
+
                     } else {
+
                         // Sandsynligt GPS-hop
                         continue
                     }
@@ -98,14 +112,17 @@ class WalkTrackingService : Service() {
 
                 // Brug GPS-hastigheden, hvis den er gyldig
                 currentSpeedKmh = when {
+
                     location.hasSpeed() &&
                             location.speed.isFinite() &&
                             location.speed >= 0f &&
                             location.speed <= 70f -> {
+
                         location.speed.toDouble() * 3.6
                     }
 
                     previous != null && validDistanceDelta != null -> {
+
                         val elapsedSeconds =
                             (location.time - previous.time) / 1000.0
 
@@ -117,6 +134,11 @@ class WalkTrackingService : Service() {
                     }
 
                     else -> 0.0
+                }
+
+                // Opdater maksimalhastigheden
+                if (currentSpeedKmh.isFinite()) {
+                    maxSpeedKmh = maxOf(maxSpeedKmh, currentSpeedKmh)
                 }
 
                 sendUpdate()
@@ -146,6 +168,7 @@ class WalkTrackingService : Service() {
     }
 
     private fun startTracking() {
+
         // Undgå at starte samme tur flere gange
         if (isTracking || isSaving) return
 
@@ -153,6 +176,8 @@ class WalkTrackingService : Service() {
         lastLocation = null
         startLocation = null
         currentSpeedKmh = 0.0
+        maxSpeedKmh = 0.0
+
         startTimeMs = System.currentTimeMillis()
         isTracking = true
 
@@ -166,20 +191,25 @@ class WalkTrackingService : Service() {
             3000L
         )
             .setMinUpdateIntervalMillis(1500L)
-            .setMinUpdateDistanceMeters(3f)
+            .setMinUpdateDistanceMeters(0f)
             .build()
 
         try {
+
             fused.requestLocationUpdates(
                 request,
                 callback,
                 Looper.getMainLooper()
             )
+
         } catch (e: SecurityException) {
+
             isTracking = false
             startTimeMs = 0L
+
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
+
             return
         }
 
@@ -187,6 +217,7 @@ class WalkTrackingService : Service() {
     }
 
     private fun stopTrackingAndSave() {
+
         // Undgå at gemme en tom tur eller gemme to gange
         if (!isTracking || startTimeMs == 0L || isSaving) {
             stopSelf()
@@ -203,36 +234,47 @@ class WalkTrackingService : Service() {
         val duration = ((endTimeMs - startTimeMs) / 1000L)
             .coerceAtLeast(0L)
 
-        // Gem positionerne, inden adresseopslaget begynder
+        // Gem positionerne og maksimalhastigheden
         val savedStartLocation = startLocation
         val savedEndLocation = lastLocation
+        val savedMaxSpeedKmh = maxSpeedKmh
 
-        // Vis at appen stadig arbejder
         val notification = buildNotification("Gemmer biltur...")
         val manager = getSystemService(NotificationManager::class.java)
+
         manager.notify(NOTIFICATION_ID, notification)
 
         // Adresseopslag udføres i baggrunden
         Thread {
+
             val startAddress = getAddress(savedStartLocation)
             val endAddress = getAddress(savedEndLocation)
 
             mainHandler.post {
+
                 val walk = Walk(
                     date = SimpleDateFormat(
                         "dd-MM-yyyy HH:mm",
                         Locale.getDefault()
                     ).format(Date(startTimeMs)),
+
                     distanceKm = distanceMeters / 1000.0,
                     durationSeconds = duration,
+
                     startTimeMs = startTimeMs,
                     endTimeMs = endTimeMs,
+
                     startAddress = startAddress,
                     endAddress = endAddress,
+
                     startLatitude = savedStartLocation?.latitude,
                     startLongitude = savedStartLocation?.longitude,
+
                     endLatitude = savedEndLocation?.latitude,
-                    endLongitude = savedEndLocation?.longitude
+                    endLongitude = savedEndLocation?.longitude,
+
+                    // Gem maksimalhastigheden i turhistorikken
+                    maxSpeedKmh = savedMaxSpeedKmh
                 )
 
                 WalkStorage(this).add(walk)
@@ -240,29 +282,37 @@ class WalkTrackingService : Service() {
                 sendBroadcast(
                     Intent(ACTION_WALK_FINISHED).apply {
                         setPackage(packageName)
+
                         putExtra("distanceKm", walk.distanceKm)
                         putExtra("durationSeconds", walk.durationSeconds)
+                        putExtra("maxSpeedKmh", walk.maxSpeedKmh)
                     }
                 )
 
                 startTimeMs = 0L
                 currentSpeedKmh = 0.0
+                maxSpeedKmh = 0.0
+
                 lastLocation = null
                 startLocation = null
+
                 isSaving = false
 
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
+
         }.start()
     }
 
     // Slår GPS-koordinater op til en læsbar adresse
     @Suppress("DEPRECATION")
     private fun getAddress(location: Location?): String {
+
         if (location == null) return ""
 
         return try {
+
             val geocoder = Geocoder(this, Locale.getDefault())
 
             if (!Geocoder.isPresent()) {
@@ -288,11 +338,16 @@ class WalkTrackingService : Service() {
     }
 
     private fun sendUpdate() {
+
         sendBroadcast(
             Intent(ACTION_UPDATE).apply {
+
                 setPackage(packageName)
 
-                putExtra("distanceKm", distanceMeters / 1000.0)
+                putExtra(
+                    "distanceKm",
+                    distanceMeters / 1000.0
+                )
 
                 putExtra(
                     "durationSeconds",
@@ -301,6 +356,7 @@ class WalkTrackingService : Service() {
                 )
 
                 putExtra("speedKmh", currentSpeedKmh)
+                putExtra("maxSpeedKmh", maxSpeedKmh)
             }
         )
     }
@@ -315,6 +371,7 @@ class WalkTrackingService : Service() {
             .build()
 
     private fun createNotificationChannel() {
+
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Bilture GPS",
@@ -326,6 +383,7 @@ class WalkTrackingService : Service() {
     }
 
     override fun onDestroy() {
+
         if (::fused.isInitialized) {
             fused.removeLocationUpdates(callback)
         }
@@ -336,9 +394,11 @@ class WalkTrackingService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+
         const val ACTION_START = "dk.example.biltur.START"
         const val ACTION_STOP = "dk.example.biltur.STOP"
         const val ACTION_UPDATE = "dk.example.biltur.UPDATE"
+
         const val ACTION_WALK_FINISHED =
             "dk.example.biltur.WALK_FINISHED"
 

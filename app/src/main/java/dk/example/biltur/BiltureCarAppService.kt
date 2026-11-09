@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.car.app.CarAppService
 import androidx.car.app.CarContext
+import androidx.car.app.model.CarColor
 import androidx.car.app.validation.HostValidator
 import androidx.car.app.Screen
 import androidx.car.app.Session
@@ -59,6 +60,7 @@ class BiltureCarScreen(
     private var distanceKm = 0.0
     private var durationSeconds = 0L
     private var speedKmh = 0.0
+    private var maxSpeedKmh = 0.0
     private var isTracking = false
     private var statusMessage = "Klar til biltur"
 
@@ -81,6 +83,8 @@ class BiltureCarScreen(
 
                     speedKmh =
                         intent.getDoubleExtra("speedKmh", 0.0)
+                    maxSpeedKmh =
+                        intent.getDoubleExtra("maxSpeedKmh", 0.0)
 
                     isTracking = true
                     statusMessage = "Biltur er i gang"
@@ -96,6 +100,8 @@ class BiltureCarScreen(
                         intent.getLongExtra("durationSeconds", 0L)
 
                     speedKmh = 0.0
+                    maxSpeedKmh =
+                        intent.getDoubleExtra("maxSpeedKmh", maxSpeedKmh)
                     isTracking = false
                     statusMessage = "Biltur gemt"
 
@@ -164,13 +170,14 @@ class BiltureCarScreen(
         }
 
         val firstRow = Row.Builder()
-            .setTitle("Distance / hastighed")
+            .setTitle("Distance")
             .addText(
                 String.format(
                     Locale.getDefault(),
-                    "%.1f km     %.0f km/t",
+                    "%.1f km  •  Nu: %.0f  •  Maks: %.1f km/t",
                     distanceKm,
-                    speedKmh
+                    speedKmh,
+                    maxSpeedKmh
                 )
             )
             .build()
@@ -191,6 +198,9 @@ class BiltureCarScreen(
         val controlAction = if (isTracking) {
             Action.Builder()
                 .setTitle("Stop biltur")
+                .setBackgroundColor(
+                    if (speedKmh > 0.0) CarColor.GREEN else CarColor.RED
+                )
                 .setOnClickListener {
                     stopTrip()
                 }
@@ -198,6 +208,7 @@ class BiltureCarScreen(
         } else {
             Action.Builder()
                 .setTitle("Start biltur")
+                .setBackgroundColor(CarColor.RED)
                 .setOnClickListener {
                     startTrip()
                 }

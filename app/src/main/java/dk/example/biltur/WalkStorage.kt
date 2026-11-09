@@ -24,30 +24,40 @@ class WalkStorage(context: Context) {
                         distanceKm = item.getDouble("distanceKm"),
                         durationSeconds = item.getLong("durationSeconds"),
 
-                        // Nye felter – gamle ture får standardværdier
                         startTimeMs = item.optLong("startTimeMs", 0L),
                         endTimeMs = item.optLong("endTimeMs", 0L),
                         startAddress = item.optString("startAddress", ""),
                         endAddress = item.optString("endAddress", ""),
-                        startLatitude = if (item.has("startLatitude") &&
-                            !item.isNull("startLatitude")) {
+
+                        startLatitude = if (
+                            item.has("startLatitude") &&
+                            !item.isNull("startLatitude")
+                        ) {
                             item.getDouble("startLatitude")
                         } else null,
 
-                        startLongitude = if (item.has("startLongitude") &&
-                            !item.isNull("startLongitude")) {
+                        startLongitude = if (
+                            item.has("startLongitude") &&
+                            !item.isNull("startLongitude")
+                        ) {
                             item.getDouble("startLongitude")
                         } else null,
 
-                        endLatitude = if (item.has("endLatitude") &&
-                            !item.isNull("endLatitude")) {
+                        endLatitude = if (
+                            item.has("endLatitude") &&
+                            !item.isNull("endLatitude")
+                        ) {
                             item.getDouble("endLatitude")
                         } else null,
 
-                        endLongitude = if (item.has("endLongitude") &&
-                            !item.isNull("endLongitude")) {
+                        endLongitude = if (
+                            item.has("endLongitude") &&
+                            !item.isNull("endLongitude")
+                        ) {
                             item.getDouble("endLongitude")
-                        } else null
+                        } else null,
+
+                        maxSpeedKmh = item.optDouble("maxSpeedKmh", 0.0)
                     )
                 )
             }
@@ -100,6 +110,8 @@ class WalkStorage(context: Context) {
         put("startLongitude", walk.startLongitude ?: JSONObject.NULL)
         put("endLatitude", walk.endLatitude ?: JSONObject.NULL)
         put("endLongitude", walk.endLongitude ?: JSONObject.NULL)
+
+        put("maxSpeedKmh", walk.maxSpeedKmh)
     }
 
     companion object {

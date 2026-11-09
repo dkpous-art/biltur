@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
     private var currentDistance by mutableDoubleStateOf(0.0)
     private var currentDuration by mutableLongStateOf(0L)
     private var currentSpeedKmh by mutableDoubleStateOf(0.0)
+    private var currentMaxSpeedKmh by mutableDoubleStateOf(0.0)
     private var walks by mutableStateOf(emptyList<Walk>())
 
     private val locationPermissionLauncher =
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
                     currentDistance = intent.getDoubleExtra("distanceKm", 0.0)
                     currentDuration = intent.getLongExtra("durationSeconds", 0L)
                     currentSpeedKmh = intent.getDoubleExtra("speedKmh", 0.0)
+                    currentMaxSpeedKmh = intent.getDoubleExtra("maxSpeedKmh", 0.0)
                     isTracking = true
                 }
 
@@ -72,6 +74,7 @@ class MainActivity : ComponentActivity() {
                     currentDistance = intent.getDoubleExtra("distanceKm", currentDistance)
                     currentDuration = intent.getLongExtra("durationSeconds", currentDuration)
                     currentSpeedKmh = 0.0
+                    currentMaxSpeedKmh = intent.getDoubleExtra("maxSpeedKmh", currentMaxSpeedKmh)
                     walks = storage.load()
                 }
             }
@@ -90,6 +93,7 @@ class MainActivity : ComponentActivity() {
                     distanceKm = currentDistance,
                     durationSeconds = currentDuration,
                     speedKmh = currentSpeedKmh,
+                    maxSpeedKmh = currentMaxSpeedKmh,
                     walks = walks,
                     onStart = ::requestPermissionsAndStart,
                     onStop = ::stopTracking,
@@ -278,6 +282,7 @@ private fun WalkApp(
     distanceKm: Double,
     durationSeconds: Long,
     speedKmh: Double,
+    maxSpeedKmh: Double,
     walks: List<Walk>,
     onStart: () -> Unit,
     onStop: () -> Unit,
@@ -358,6 +363,18 @@ private fun WalkApp(
                             )
                         }
                     }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Text(
+                        "Maksimal hastighed",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Text(
+                        "%.1f km/t".format(locale, maxSpeedKmh),
+                        style = MaterialTheme.typography.titleLarge
+                    )
 
                     Spacer(Modifier.height(18.dp))
 
@@ -478,8 +495,13 @@ private fun WalkRow(
                 horizontalAlignment = Alignment.End
             ) {
                 Text(formatDuration(walk.durationSeconds))
+
                 Text(
                     "Gns. %.2f km/t".format(locale, walk.averageKmh)
+                )
+
+                Text(
+                    "Maks. %.1f km/t".format(locale, walk.maxSpeedKmh)
                 )
             }
 

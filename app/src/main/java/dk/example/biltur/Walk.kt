@@ -14,7 +14,10 @@ data class Walk(
     val startLatitude: Double? = null,
     val startLongitude: Double? = null,
     val endLatitude: Double? = null,
-    val endLongitude: Double? = null
+    val endLongitude: Double? = null,
+
+    // Turens maksimale hastighed
+    val maxSpeedKmh: Double = 0.0
 ) {
     val averageKmh: Double
         get() = if (durationSeconds > 0) {
